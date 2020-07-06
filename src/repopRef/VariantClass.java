@@ -7,38 +7,131 @@ import java.util.*;
 public class VariantClass {
     private String chrom;
     private long pos;
-    private Allele REF;
+    private String REF;
     private List<Allele> ALT;
+    private String alt_str;
     private String uniqID;
+    private String ID;
+    private String qual;
+    private String filter;
     private CommonInfo CI;
-    private HashMap<String, Genotype> nonRefCalls = null; // k = sampleID, v = 0/1, 1/0, 1/1
-    private HashMap<String, Integer> readDepth = null; // k = sampleID, v = DP for this variant in this sample
+    private Genotype geno;
+    //private HashMap<String, Genotype> nonRefCalls = null; // k = sampleID, v = 0/1, 1/0, 1/1
+    //private HashMap<String, Integer> readDepth = null; // k = sampleID, v = DP for this variant in this sample
 
     public VariantClass(VariantContext vc) {
 
        this.chrom = vc.getContig();
        this.pos = vc.getStart();
-       this.REF = vc.getReference();
+       this.ID = vc.getID();
+       this.REF = vc.getReference().getDisplayString();
        this.ALT = vc.getAlternateAlleles();
+       this.qual = String.valueOf( vc.getPhredScaledQual() );
        this.CI = vc.getCommonInfo();
+
+       if(vc.getFilters().isEmpty()) this.filter = "PASS";
+       else {
+           for(String s : vc.getFilters()) {
+               this.filter = s;
+               break;
+           }
+       }
+
        // construct unique ID for this variant
        List<String> alts = new ArrayList<>();
        for(Allele a : this.ALT) { alts.add(a.getDisplayString()); }
-       uniqID = chrom + ":" + this.pos + "_" + this.REF.getDisplayString() + ">" + String.join(",", alts);
+       this.alt_str = String.join(",", alts);
+       uniqID = this.chrom + ":" + this.pos;
 
-       nonRefCalls = new HashMap<>();
-       readDepth = new HashMap<>();
        for(Genotype g : vc.getGenotypes()) {
-           String patient = g.getSampleName();
-           nonRefCalls.put(patient, g);
-           readDepth.put(patient, g.getDP());
+           geno = g;
        }
     }
+
+    public VariantClass() {
+        this.chrom = null;
+        this.pos = -1;
+        this.ID = null;
+        this.REF = null;
+        this.ALT = null;
+        this.alt_str = null;
+    }
+
+    public String getStep1_line() {
+        String ret = this.chrom + "\t" + this.pos + "\t" + this.REF + "\t" + this.alt_str;
+        return(ret);
+    }
+
+    private String formatCommonInfo() {
+
+        ArrayList<String> ary = new ArrayList<>();
+        for(String s : this.CI.getAttributes().keySet()) {
+            String pair = s + "=" + this.CI.getAttribute(s);
+            ary.add(pair);
+        }
+        String ret = String.join(";", ary);
+        return(ret);
+    }
+
+    public String getLine() {
+        List<String> ret = new ArrayList<>();
+
+        ret.add(this.chrom);
+        ret.add(String.valueOf(this.pos));
+        ret.add(this.ID);
+        ret.add(this.REF);
+        ret.add(alt_str);
+        ret.add(this.qual);
+        ret.add(this.filter);
+        ret.add(formatCommonInfo());
+        ret.add("GT:AD:DP");
+
+        String DP_str = String.valueOf( geno.getDP() );
+        ArrayList<String> ary = new ArrayList<>();
+        for(int i : geno.getAD()) { ary.add(String.valueOf(i));  }
+        String AD_str = String.join(",", ary);
+
+        String geno_str = getGenotypeCode() + ":" + AD_str + ":" + DP_str;
+        ret.add(geno_str);
+
+        String ret_str = String.join("\t", ret);
+        return(ret_str);
+    }
+
+
+    private String getGenotypeCode() {
+        String ret = "";
+        if(this.geno.isNoCall()) ret = "./.";
+        if(this.geno.isHet()) ret = "0/1";
+        if(this.geno.isHomVar()) ret = "1/1";
+        return(ret);
+    }
+
+
+    // This version of the function is specifically for REFERENCE calls that don't exist in the VCF file
+    public String getLine_REF(String chrom, int pos, String ref, String alt) {
+       List<String> ret = new ArrayList<>();
+
+       ret.add(chrom);
+       ret.add( String.valueOf(pos) );
+       ret.add("."); // ID
+       ret.add(ref);
+       ret.add(alt);
+       ret.add("."); // qual
+       ret.add("REF_CALL"); // filter
+       ret.add("."); // INFO
+       ret.add("GT:AD:DP");
+       ret.add("0/0:-1,-1:-1");
+
+       String ret_str = String.join("\t", ret);
+       return(ret_str);
+    }
+
 
     public String getID() {
         return(this.uniqID);
     }
-
+/*
     public void addGenotype(Genotype g) {
         nonRefCalls.put(g.getSampleName(), g);
         readDepth.put(g.getSampleName(), g.getDP());
@@ -207,4 +300,6 @@ public class VariantClass {
         System.out.println(line);
         output = null;
     }
+
+ */
 }
