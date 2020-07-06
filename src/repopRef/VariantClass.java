@@ -16,8 +16,6 @@ public class VariantClass {
     private String filter;
     private CommonInfo CI;
     private Genotype geno;
-    //private HashMap<String, Genotype> nonRefCalls = null; // k = sampleID, v = 0/1, 1/0, 1/1
-    //private HashMap<String, Integer> readDepth = null; // k = sampleID, v = DP for this variant in this sample
 
     public VariantClass(VariantContext vc) {
 
@@ -57,10 +55,9 @@ public class VariantClass {
         this.alt_str = null;
     }
 
-    public String getStep1_line() {
-        String ret = this.chrom + "\t" + this.pos + "\t" + this.REF + "\t" + this.alt_str;
-        return(ret);
-    }
+
+    public String getALT() { return(alt_str); }
+    public String getREF() { return(this.REF); }
 
     private String formatCommonInfo() {
 
